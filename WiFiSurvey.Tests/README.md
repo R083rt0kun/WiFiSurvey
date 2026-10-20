@@ -1,10 +1,10 @@
-# WifiSurvey.Tests
+# WiFiSurvey.Tests
 
-Comprehensive unit test suite for the WifiSurvey WiFi site survey application.
+Comprehensive unit test suite for the WiFiSurvey Wi-Fi site survey application.
 
 ## Overview
 
-This test project uses **xUnit** as the testing framework with **FluentAssertions** for readable assertions and **Moq** for mocking dependencies. The tests focus on business logic and avoid P/Invoke WiFi scanning operations.
+This test project uses **xUnit** as the testing framework with **FluentAssertions** for readable assertions and **Moq** for mocking dependencies. The tests focus on business logic and avoid P/Invoke Wi-Fi scanning operations.
 
 ## Test Coverage
 
@@ -23,7 +23,7 @@ Tests the heatmap generation functionality:
 
 ### MeasurementPointTests.cs
 Tests the MeasurementPoint model:
-- **FromMeasurement factory**: Validates conversion from WifiMeasurement to MeasurementPoint
+- **FromMeasurement factory**: Validates conversion from WiFiMeasurement to MeasurementPoint
 - **Signal quality classification**: Tests "Excellent/Good/Fair/Weak/Poor" thresholds
 - **Color mapping**: Validates GetSignalColor() returns correct colors for signal strengths
 - **QualityDescription**: Tests boundary conditions for quality ratings
@@ -62,7 +62,7 @@ Tests the FloorPlan model:
 ## Running the Tests
 
 ### Visual Studio
-1. Open `WifiSurvey.sln` in Visual Studio
+1. Open `WiFiSurvey.sln` in Visual Studio
 2. Open **Test Explorer** (Test → Test Explorer)
 3. Click **Run All** to execute all tests
 4. View results in the Test Explorer window
@@ -70,7 +70,7 @@ Tests the FloorPlan model:
 ### Command Line (Windows)
 ```powershell
 # Navigate to solution directory
-cd C:\Obsidian\tools\WifiSurvey
+cd C:\Obsidian\tools\WiFiSurvey
 
 # Restore packages
 dotnet restore
@@ -93,7 +93,7 @@ dotnet test /p:CollectCoverage=true /p:CoverageReportFormat=opencover
 
 ### VS Code
 1. Install the **.NET Core Test Explorer** extension
-2. Open the WifiSurvey folder in VS Code
+2. Open the WiFiSurvey folder in VS Code
 3. Tests will appear in the Test Explorer sidebar
 4. Click the play button to run tests
 
@@ -166,11 +166,11 @@ private void CreateTestImage(string path, int width, int height)
 ## Excluded from Testing
 
 The following components are **NOT** tested due to platform-specific P/Invoke dependencies:
-- `WifiScanner.cs` - Requires Windows WLAN API (wlanapi.dll)
+- `WiFiScanner.cs` - Requires Windows WLAN API (wlanapi.dll)
 - `MainForm.cs` - Windows Forms UI
 - `FloorPlanCanvas.cs` - Windows Forms custom control
 
-These would require integration tests on a Windows environment with WiFi hardware.
+These would require integration tests on a Windows environment with Wi-Fi hardware.
 
 ## Code Coverage Goals
 
@@ -203,16 +203,16 @@ jobs:
       with:
         dotnet-version: 8.0.x
     - name: Restore dependencies
-      run: dotnet restore tools/WifiSurvey/WifiSurvey.sln
+      run: dotnet restore tools/WiFiSurvey/WiFiSurvey.sln
     - name: Build
-      run: dotnet build tools/WifiSurvey/WifiSurvey.sln --no-restore
+      run: dotnet build tools/WiFiSurvey/WiFiSurvey.sln --no-restore
     - name: Test
-      run: dotnet test tools/WifiSurvey/WifiSurvey.sln --no-build --verbosity normal
+      run: dotnet test tools/WiFiSurvey/WiFiSurvey.sln --no-build --verbosity normal
 ```
 
 ## Contributing
 
-When adding new features to WifiSurvey:
+When adding new features to WiFiSurvey:
 1. Write tests first (TDD approach recommended)
 2. Ensure tests follow naming convention: `Method_Scenario_ExpectedBehavior`
 3. Maintain 90%+ code coverage
@@ -238,4 +238,4 @@ When adding new features to WifiSurvey:
 
 ## License
 
-Same as parent project (WifiSurvey).
+Same as parent project (WiFiSurvey).

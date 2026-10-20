@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Runs unit tests for the WifiSurvey application.
+    Runs unit tests for the WiFiSurvey application.
 
 .DESCRIPTION
     This script restores NuGet packages, builds the solution, and runs all unit tests
@@ -9,7 +9,7 @@
 .REQUIREMENTS
     - PowerShell 7.0+
     - .NET 8.0 SDK
-    - WifiSurvey solution
+    - WiFiSurvey solution
 
 .EXAMPLE
     .\run-tests.ps1
@@ -44,10 +44,10 @@ $ErrorActionPreference = 'Stop'
 
 # Get script directory
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
-$solutionPath = Join-Path $scriptPath "WifiSurvey.sln"
-$testProjectPath = Join-Path $scriptPath "WifiSurvey.Tests"
+$solutionPath = Join-Path $scriptPath "WiFiSurvey.sln"
+$testProjectPath = Join-Path $scriptPath "WiFiSurvey.Tests"
 
-Write-Host "WifiSurvey Test Runner" -ForegroundColor Cyan
+Write-Host "WiFiSurvey Test Runner" -ForegroundColor Cyan
 Write-Host "======================" -ForegroundColor Cyan
 Write-Host ""
 

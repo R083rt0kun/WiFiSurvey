@@ -1,10 +1,10 @@
 using FluentAssertions;
 using System.Drawing;
 using System.Drawing.Imaging;
-using WifiSurvey.Models;
-using WifiSurvey.Services;
+using WiFiSurvey.Models;
+using WiFiSurvey.Services;
 
-namespace WifiSurvey.Tests;
+namespace WiFiSurvey.Tests;
 
 /// <summary>
 /// Unit tests for HeatmapGenerator

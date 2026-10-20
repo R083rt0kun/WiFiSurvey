@@ -1,11 +1,11 @@
-# WiFi Survey Tool
+# Wi-Fi Survey Tool
 
-A professional WiFi site survey and heatmap generation tool for IT professionals. Upload floor plans, click to measure WiFi signal strength at various locations, and generate color-coded heatmap visualizations.
+A professional Wi-Fi site survey and heatmap generation tool for IT professionals. Upload floor plans, click to measure Wi-Fi signal strength at various locations, and generate color-coded heatmap visualizations.
 
 ## Features
 
 - **Floor Plan Support**: Load PNG, JPG, BMP, or GIF images of floor plans
-- **Click-to-Measure**: Click anywhere on the floor plan to take a WiFi measurement
+- **Click-to-Measure**: Click anywhere on the floor plan to take a Wi-Fi measurement
 - **Real-time Heatmap**: Automatic heatmap generation using IDW interpolation
 - **Signal Metrics**: RSSI (dBm), link quality, channel, frequency, and band
 - **Project Files**: Save and load survey projects (.wifisurvey)
@@ -15,13 +15,13 @@ A professional WiFi site survey and heatmap generation tool for IT professionals
 
 - Windows 10/11 (64-bit)
 - .NET 8 Runtime
-- WiFi adapter with support for Native WiFi API
+- Wi-Fi adapter with support for Native Wi-Fi API
 
 ## Building
 
 ```bash
-# Navigate to WifiSurvey directory
-cd tools/WifiSurvey
+# Navigate to WiFiSurvey directory
+cd tools/WiFiSurvey
 
 # Restore packages
 dotnet restore
@@ -38,7 +38,7 @@ dotnet run
 ### Quick Start
 
 1. **Load Floor Plan**: File > Load Floor Plan, or click "Load Image" in toolbar
-2. **Take Measurements**: Click on locations in the floor plan to measure WiFi
+2. **Take Measurements**: Click on locations in the floor plan to measure Wi-Fi
 3. **View Heatmap**: After 3+ measurements, a heatmap automatically appears
 4. **Export Results**: Export to CSV, heatmap image, or HTML report
 
@@ -65,17 +65,17 @@ dotnet run
 ## Project Structure
 
 ```
-WifiSurvey/
-├── WifiSurvey.sln              # Solution file
-├── WifiSurvey.csproj           # .NET 8 WinForms project
+WiFiSurvey/
+├── WiFiSurvey.sln              # Solution file
+├── WiFiSurvey.csproj           # .NET 8 WinForms project
 ├── Program.cs                  # Entry point
 ├── MainForm.cs                 # Main application form
 ├── Models/
-│   ├── MeasurementPoint.cs     # WiFi measurement data
+│   ├── MeasurementPoint.cs     # Wi-Fi measurement data
 │   ├── FloorPlan.cs            # Floor plan image and scale
 │   └── SurveyProject.cs        # Project container
 ├── Services/
-│   ├── WifiScanner.cs          # Native WiFi API wrapper
+│   ├── WiFiScanner.cs          # Native Wi-Fi API wrapper
 │   └── HeatmapGenerator.cs     # IDW interpolation heatmap
 ├── Controls/
 │   └── FloorPlanCanvas.cs      # Custom floor plan control
@@ -84,9 +84,9 @@ WifiSurvey/
 
 ## Technical Details
 
-### WiFi Scanning
+### Wi-Fi Scanning
 
-Uses the Windows Native WiFi API (wlanapi.dll) through P/Invoke to retrieve:
+Uses the Windows Native Wi-Fi API (wlanapi.dll) through P/Invoke to retrieve:
 - RSSI (Received Signal Strength Indicator) in dBm
 - Link quality percentage
 - Channel and frequency
@@ -140,8 +140,8 @@ Includes all measurement data with columns:
 
 ## Troubleshooting
 
-### "WiFi Scanner Error" on startup
-- Ensure WiFi adapter is enabled
+### "Wi-Fi Scanner Error" on startup
+- Ensure Wi-Fi adapter is enabled
 - Check that Windows WLAN AutoConfig service is running
 - Run as Administrator if issues persist
 
@@ -150,9 +150,9 @@ Includes all measurement data with columns:
 - Check View > Show Heatmap is enabled
 
 ### Measurements show -100 dBm
-- No WiFi connection detected
+- No Wi-Fi connection detected
 - Move closer to an access point
-- Check WiFi adapter is functioning
+- Check Wi-Fi adapter is functioning
 
 ## Project Origin and Attribution
 

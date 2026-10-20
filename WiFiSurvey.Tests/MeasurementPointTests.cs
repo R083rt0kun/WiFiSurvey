@@ -1,9 +1,9 @@
 using FluentAssertions;
 using System.Drawing;
-using WifiSurvey.Models;
-using WifiSurvey.Services;
+using WiFiSurvey.Models;
+using WiFiSurvey.Services;
 
-namespace WifiSurvey.Tests;
+namespace WiFiSurvey.Tests;
 
 /// <summary>
 /// Unit tests for MeasurementPoint model
@@ -31,7 +31,7 @@ public class MeasurementPointTests
     public void FromMeasurement_WithValidMeasurement_CreatesCorrectMeasurementPoint()
     {
         // Arrange
-        var network = new WifiNetwork
+        var network = new WiFiNetwork
         {
             SSID = "TestNetwork",
             BSSID = "AA:BB:CC:DD:EE:FF",
@@ -42,11 +42,11 @@ public class MeasurementPointTests
             MaxRate = 866.7
         };
 
-        var measurement = new WifiMeasurement
+        var measurement = new WiFiMeasurement
         {
             Timestamp = new DateTime(2024, 1, 15, 10, 30, 0),
             ConnectedNetwork = network,
-            VisibleNetworks = new List<WifiNetwork> { network },
+            VisibleNetworks = new List<WiFiNetwork> { network },
             SignalStrength = -55,
             LinkQuality = 80,
             Channel = 6
@@ -75,11 +75,11 @@ public class MeasurementPointTests
     public void FromMeasurement_WithNullConnectedNetwork_UsesDefaultValues()
     {
         // Arrange
-        var measurement = new WifiMeasurement
+        var measurement = new WiFiMeasurement
         {
             Timestamp = DateTime.Now,
             ConnectedNetwork = null,
-            VisibleNetworks = new List<WifiNetwork>(),
+            VisibleNetworks = new List<WiFiNetwork>(),
             SignalStrength = -100,
             LinkQuality = 0,
             Channel = 0
@@ -320,8 +320,8 @@ public class MeasurementPointTests
     {
         // Arrange
         var point = new MeasurementPoint();
-        var network1 = new WifiNetwork { SSID = "Network1" };
-        var network2 = new WifiNetwork { SSID = "Network2" };
+        var network1 = new WiFiNetwork { SSID = "Network1" };
+        var network2 = new WiFiNetwork { SSID = "Network2" };
 
         // Act
         point.VisibleNetworks.Add(network1);
@@ -354,7 +354,7 @@ public class MeasurementPointTests
         // Arrange
         var point = new MeasurementPoint();
 
-        // Act & Assert - typical WiFi RSSI range is -30 to -90 dBm
+        // Act & Assert - typical Wi-Fi RSSI range is -30 to -90 dBm
         point.SignalStrength = -30;
         point.SignalStrength.Should().Be(-30);
 
