@@ -1,7 +1,7 @@
-namespace WifiSurvey;
+namespace WiFiSurvey;
 
 /// <summary>
-/// WiFi Survey Tool - Site survey and heatmap generation
+/// Wi-Fi Survey - Site survey and heatmap generation
 /// CosmicBytez IT Operations
 /// </summary>
 static class Program

@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WifiSurvey", "WifiSurvey.csproj", "{8A7C5E3D-4F2B-4A1C-9E8D-6B3F2A1C5E7D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WiFiSurvey", "WiFiSurvey.csproj", "{8A7C5E3D-4F2B-4A1C-9E8D-6B3F2A1C5E7D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WifiSurvey.Tests", "WifiSurvey.Tests\WifiSurvey.Tests.csproj", "{9B8D6F4E-5A3C-5B2D-0F9E-7C4A3B2D6F8E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WiFiSurvey.Tests", "WiFiSurvey.Tests\WiFiSurvey.Tests.csproj", "{9B8D6F4E-5A3C-5B2D-0F9E-7C4A3B2D6F8E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

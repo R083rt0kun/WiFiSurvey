@@ -1,18 +1,18 @@
 using System.Text;
-using WifiSurvey.Controls;
-using WifiSurvey.Models;
-using WifiSurvey.Services;
+using WiFiSurvey.Controls;
+using WiFiSurvey.Models;
+using WiFiSurvey.Services;
 
-namespace WifiSurvey;
+namespace WiFiSurvey;
 
 /// <summary>
-/// Main application form for WiFi Survey Tool
+/// Main application form for Wi-Fi Survey
 /// Modern tabbed interface with Live Monitor and Site Survey views
 /// </summary>
 public partial class MainForm : Form
 {
     private SurveyProject _project = new();
-    private WifiScanner? _wifiScanner;
+    private WiFiScanner? _wifiScanner;
     private readonly HeatmapGenerator _heatmapGenerator = new();
 
     // Main UI Controls
@@ -70,7 +70,7 @@ public partial class MainForm : Form
     public MainForm()
     {
         InitializeComponent();
-        InitializeWifiScanner();
+        InitializeWiFiScanner();
         Shown += OnMainFormShown;
     }
 
@@ -104,7 +104,7 @@ public partial class MainForm : Form
         // Status Strip
         _statusStrip = new StatusStrip();
         _statusLabel = new ToolStripStatusLabel("Ready") { Spring = true, TextAlign = ContentAlignment.MiddleLeft };
-        _wifiStatusLabel = new ToolStripStatusLabel("WiFi: Initializing...");
+        _wifiStatusLabel = new ToolStripStatusLabel("Wi-Fi: Initializing...");
         _progressBar = new ToolStripProgressBar { Visible = false, Width = 150 };
         _statusStrip.Items.AddRange(new ToolStripItem[] { _statusLabel, _progressBar, _wifiStatusLabel });
 
@@ -553,7 +553,7 @@ public partial class MainForm : Form
                 int signal = liveRssi ?? connected.SignalStrength;
                 _signalValueLabel.Text = $"{signal} dBm";
                 _signalValueLabel.ForeColor = GetSignalColor(signal);
-                _signalQualityLabel.Text = WifiNetwork.DescribeSignalStrength(signal);
+                _signalQualityLabel.Text = WiFiNetwork.DescribeSignalStrength(signal);
                 _signalQualityLabel.ForeColor = GetSignalColor(signal);
                 _connectedSsidLabel.Text = connected.SSID;
                 _channelLabel.Text = connected.Channel.ToString();
@@ -1004,7 +1004,7 @@ public partial class MainForm : Form
         _toolStrip.Items.Add(new ToolStripButton("Site Survey", null, (s, e) => _mainTabControl.SelectedTab = _siteSurveyTab) { ToolTipText = "Switch to Site Survey" });
         _toolStrip.Items.Add(new ToolStripSeparator());
         _toolStrip.Items.Add(new ToolStripButton("Load Image", null, (s, e) => LoadFloorPlan()) { ToolTipText = "Load Floor Plan Image" });
-        _toolStrip.Items.Add(new ToolStripButton("Measure", null, (s, e) => TakeMeasurementAtCenter()) { ToolTipText = "Take WiFi Measurement" });
+        _toolStrip.Items.Add(new ToolStripButton("Measure", null, (s, e) => TakeMeasurementAtCenter()) { ToolTipText = "Take Wi-Fi Measurement" });
         _toolStrip.Items.Add(new ToolStripButton("Clear", null, (s, e) => ClearAllPoints()) { ToolTipText = "Clear All Measurements" });
         _toolStrip.Items.Add(new ToolStripSeparator());
         _toolStrip.Items.Add(new ToolStripButton("Export CSV", null, (s, e) => ExportToCsv()) { ToolTipText = "Export to CSV" });
@@ -1013,20 +1013,20 @@ public partial class MainForm : Form
 
     #endregion
 
-    private void InitializeWifiScanner()
+    private void InitializeWiFiScanner()
     {
         try
         {
-            _wifiScanner = new WifiScanner();
-            _wifiStatusLabel.Text = "WiFi: Ready";
+            _wifiScanner = new WiFiScanner();
+            _wifiStatusLabel.Text = "Wi-Fi: Ready";
             _wifiStatusLabel.ForeColor = Color.Green;
         }
         catch (Exception ex)
         {
-            _wifiStatusLabel.Text = $"WiFi: Error - {ex.Message}";
+            _wifiStatusLabel.Text = $"Wi-Fi: Error - {ex.Message}";
             _wifiStatusLabel.ForeColor = Color.Red;
-            MessageBox.Show($"Failed to initialize WiFi scanner: {ex.Message}\n\nMeasurements will not be available.",
-                "WiFi Scanner Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show($"Failed to initialize Wi-Fi scanner: {ex.Message}\n\nMeasurements will not be available.",
+                "Wi-Fi Scanner Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 
@@ -1107,7 +1107,7 @@ public partial class MainForm : Form
     {
         using var dialog = new OpenFileDialog
         {
-            Filter = "WiFi Survey Project (*.wifisurvey)|*.wifisurvey|All Files (*.*)|*.*",
+            Filter = "Wi-Fi Survey Project (*.wifisurvey)|*.wifisurvey|All Files (*.*)|*.*",
             Title = "Open Project"
         };
 
@@ -1145,7 +1145,7 @@ public partial class MainForm : Form
     {
         using var dialog = new SaveFileDialog
         {
-            Filter = "WiFi Survey Project (*.wifisurvey)|*.wifisurvey",
+            Filter = "Wi-Fi Survey Project (*.wifisurvey)|*.wifisurvey",
             Title = "Save Project As",
             FileName = _project.Name
         };
@@ -1184,7 +1184,7 @@ public partial class MainForm : Form
     {
         if (_wifiScanner == null)
         {
-            MessageBox.Show("WiFi scanner not available.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show("Wi-Fi scanner not available.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return;
         }
         if (_measurementInProgress) return;
@@ -1230,7 +1230,7 @@ public partial class MainForm : Form
     {
         if (_canvas.FloorPlanImage == null)
         {
-            MessageBox.Show("Please load a floor plan first.\n\nFor quick WiFi testing without a floor plan, use the Live Monitor tab.",
+            MessageBox.Show("Please load a floor plan first.\n\nFor quick Wi-Fi testing without a floor plan, use the Live Monitor tab.",
                 "No Floor Plan", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
@@ -1366,7 +1366,7 @@ public partial class MainForm : Form
         return $@"<!DOCTYPE html>
 <html>
 <head>
-    <title>WiFi Survey Report - {_project.Name}</title>
+    <title>Wi-Fi Survey Report - {_project.Name}</title>
     <style>
         body {{ font-family: 'Segoe UI', sans-serif; margin: 40px; }}
         h1 {{ color: #333; }}
@@ -1384,7 +1384,7 @@ public partial class MainForm : Form
     </style>
 </head>
 <body>
-    <h1>WiFi Survey Report</h1>
+    <h1>Wi-Fi Survey Report</h1>
     <p><strong>Project:</strong> {_project.Name}</p>
     <p><strong>Location:</strong> {_project.Location}</p>
     <p><strong>Date:</strong> {DateTime.Now:yyyy-MM-dd HH:mm}</p>
@@ -1426,7 +1426,7 @@ public partial class MainForm : Form
     </table>
 
     <p style=""margin-top: 40px; color: #666; font-size: 12px;"">
-        Generated by WiFi Survey Tool - CosmicBytez IT Operations
+        Generated by Wi-Fi Survey - CosmicBytez IT Operations
     </p>
 </body>
 </html>";
@@ -1435,15 +1435,15 @@ public partial class MainForm : Form
     private void ShowInstructions()
     {
         MessageBox.Show(
-            "WiFi Survey Tool - Instructions\n\n" +
+            "Wi-Fi Survey - Instructions\n\n" +
             "LIVE MONITOR TAB:\n" +
             "- View real-time signal strength graph\n" +
-            "- See all visible WiFi networks\n" +
+            "- See all visible Wi-Fi networks\n" +
             "- Monitor connection quality over time\n" +
             "- Adjust auto-refresh rate (1-10 seconds)\n\n" +
             "SITE SURVEY TAB:\n" +
             "1. Load a floor plan image (File > Load Floor Plan)\n" +
-            "2. Click on the floor plan to take WiFi measurements\n" +
+            "2. Click on the floor plan to take Wi-Fi measurements\n" +
             "3. The heatmap will automatically update\n" +
             "4. At least 3 measurements are needed for a heatmap\n\n" +
             "Controls:\n" +
@@ -1451,7 +1451,7 @@ public partial class MainForm : Form
             "- Right Click + Drag: Pan the view\n" +
             "- Mouse Wheel: Zoom in/out\n\n" +
             "Tips:\n" +
-            "- Use Live Monitor to test WiFi before surveys\n" +
+            "- Use Live Monitor to test Wi-Fi before surveys\n" +
             "- Take measurements in a grid pattern for best results",
             "Instructions", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
@@ -1459,8 +1459,8 @@ public partial class MainForm : Form
     private void ShowAbout()
     {
         MessageBox.Show(
-            "WiFi Survey Tool v2.0\n\n" +
-            "A professional WiFi site survey and monitoring tool.\n\n" +
+            "Wi-Fi Survey v2.0\n\n" +
+            "A professional Wi-Fi site survey and monitoring tool.\n\n" +
             "Features:\n" +
             "- Live signal monitoring with real-time graph\n" +
             "- Floor plan-based site surveys\n" +
@@ -1468,7 +1468,7 @@ public partial class MainForm : Form
             "- CSV export and HTML reports\n\n" +
             "CosmicBytez IT Operations\n" +
             "Part of the IT Tools Library",
-            "About WiFi Survey Tool", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            "About Wi-Fi Survey", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     #endregion

@@ -1,10 +1,10 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace WifiSurvey.Models;
+namespace WiFiSurvey.Models;
 
 /// <summary>
-/// Represents a WiFi survey project containing floor plan and measurements
+/// Represents a Wi-Fi survey project containing floor plan and measurements
 /// </summary>
 public class SurveyProject
 {
@@ -234,7 +234,7 @@ public class SurveyProject
 }
 
 /// <summary>
-/// Statistics about a WiFi survey
+/// Statistics about a Wi-Fi survey
 /// </summary>
 public class SurveyStatistics
 {

@@ -1,10 +1,10 @@
 using System.Text.Json.Serialization;
-using WifiSurvey.Services;
+using WiFiSurvey.Services;
 
-namespace WifiSurvey.Models;
+namespace WiFiSurvey.Models;
 
 /// <summary>
-/// Represents a WiFi measurement point on the floor plan
+/// Represents a Wi-Fi measurement point on the floor plan
 /// </summary>
 public class MeasurementPoint
 {
@@ -39,7 +39,7 @@ public class MeasurementPoint
     public int LinkQuality { get; set; }
 
     /// <summary>
-    /// WiFi channel
+    /// Wi-Fi channel
     /// </summary>
     public int Channel { get; set; }
 
@@ -77,12 +77,12 @@ public class MeasurementPoint
     /// All networks visible at this point
     /// </summary>
     [JsonIgnore]
-    public List<WifiNetwork> VisibleNetworks { get; set; } = new();
+    public List<WiFiNetwork> VisibleNetworks { get; set; } = new();
 
     /// <summary>
-    /// Creates a measurement point from a WiFi measurement
+    /// Creates a measurement point from a Wi-Fi measurement
     /// </summary>
-    public static MeasurementPoint FromMeasurement(double x, double y, WifiMeasurement measurement)
+    public static MeasurementPoint FromMeasurement(double x, double y, WiFiMeasurement measurement)
     {
         return new MeasurementPoint
         {

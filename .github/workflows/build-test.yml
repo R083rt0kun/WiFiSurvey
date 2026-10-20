@@ -26,10 +26,10 @@ jobs:
       # a .sln and a .csproj, so a bare `dotnet <verb>` fails with MSB1011
       # ("more than one project or solution file").
       - name: Restore
-        run: dotnet restore WifiSurvey.sln
+        run: dotnet restore WiFiSurvey.sln
 
       - name: Build
-        run: dotnet build WifiSurvey.sln --configuration Release --no-restore
+        run: dotnet build WiFiSurvey.sln --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test WifiSurvey.sln --configuration Release --no-build --verbosity normal
+        run: dotnet test WiFiSurvey.sln --configuration Release --no-build --verbosity normal

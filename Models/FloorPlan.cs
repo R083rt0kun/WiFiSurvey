@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace WifiSurvey.Models;
+namespace WiFiSurvey.Models;
 
 /// <summary>
 /// Represents a floor plan image with scale information
