@@ -10,12 +10,12 @@
     <!-- <ApplicationIcon>wifi.ico</ApplicationIcon> -->
     <Title>WiFi Survey Tool</Title>
     <Description>WiFi site survey and heatmap generation tool for IT professionals</Description>
-    <Company>CosmicBytez</Company>
+    <Company>R083rt0kun</Company>
     <Product>WifiSurvey</Product>
     <Version>1.1.0</Version>
     <AssemblyVersion>1.1.0.0</AssemblyVersion>
     <FileVersion>1.1.0.0</FileVersion>
-    <Copyright>Copyright (c) 2025 CosmicBytez</Copyright>
+    <Copyright>Copyright (c) 2025 CosmicBytez; Copyright (c) 2026 R083rt0kun (modifications)</Copyright>
 
     <!-- Portable/Self-Contained Deployment Settings -->
     <SelfContained>true</SelfContained>
