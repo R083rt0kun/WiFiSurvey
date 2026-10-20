@@ -111,6 +111,31 @@ public sealed class WifiScanner : IDisposable
         public byte[] Bssid;
     }
 
+    // Native WLAN_CONNECTION_ATTRIBUTES prefix, ending at
+    // wlanAssociationAttributes.ulTxRate. Rates are reported in Kbits/s.
+    // This is distinct from the legacy supported-rate set in WLAN_BSS_ENTRY.
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct WLAN_CONNECTION_LINK_RATES_PREFIX
+    {
+        public int InterfaceState;
+        public int ConnectionMode;
+
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = WLAN_MAX_NAME_LENGTH)]
+        public string ProfileName;
+
+        public DOT11_SSID Ssid;
+        public int BssType;
+
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 6)]
+        public byte[] Bssid;
+
+        public int PhyType;
+        public uint PhyIndex;
+        public uint DriverSignalQuality;
+        public uint RxRateKbps;
+        public uint TxRateKbps;
+    }
+
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct WLAN_AVAILABLE_NETWORK
     {
@@ -429,11 +454,15 @@ public sealed class WifiScanner : IDisposable
                             int rssi = bssEntry.lRssi;
                             int linkQuality = (int)bssEntry.uLinkQuality;
 
-                            // Calculate max rate from rate set
+                            // Legacy supported rates of this BSS, NOT the current
+                            // connection PHY rate or the maximum 802.11ac/ax rate.
                             double maxRate = 0;
                             if (bssEntry.wlanRateSet.usRateSet != null)
                             {
-                                for (int r = 0; r < bssEntry.wlanRateSet.uRateSetLength && r < 126; r++)
+                                // uRateSetLength counts bytes, with each entry a ushort.
+                                int count = (int)Math.Min(bssEntry.wlanRateSet.uRateSetLength / sizeof(ushort),
+                                    (uint)bssEntry.wlanRateSet.usRateSet.Length);
+                                for (int r = 0; r < count; r++)
                                 {
                                     double rate = (bssEntry.wlanRateSet.usRateSet[r] & 0x7FFF) * 0.5;
                                     if (rate > maxRate) maxRate = rate;
@@ -522,6 +551,70 @@ public sealed class WifiScanner : IDisposable
 
                     var connection = Marshal.PtrToStructure<WLAN_CONNECTION_PREFIX>(dataPtr);
                     return FormatBssid(connection.Bssid);
+                }
+                finally
+                {
+                    if (dataPtr != IntPtr.Zero)
+                        WlanFreeMemory(dataPtr);
+                }
+            }
+
+            return null;
+        }
+        finally
+        {
+            WlanFreeMemory(interfaceListPtr);
+        }
+    }
+
+    /// <summary>
+    /// Returns the receive and transmit PHY link rates reported by Windows for
+    /// the current association. These are neither application throughput nor
+    /// the maximum supported legacy rates of a BSS. Returns null when unavailable
+    /// or when roaming has changed the BSSID since the caller read its BSS list.
+    /// </summary>
+    public (double RxMbps, double TxMbps)? GetConnectedLinkRates(string expectedBssid)
+    {
+        if (_clientHandle == IntPtr.Zero || _disposed || string.IsNullOrWhiteSpace(expectedBssid))
+            return null;
+
+        int result = WlanEnumInterfaces(_clientHandle, IntPtr.Zero, out IntPtr interfaceListPtr);
+        if (result != 0 || interfaceListPtr == IntPtr.Zero)
+            return null;
+
+        try
+        {
+            var interfaces = new WLAN_INTERFACE_INFO_LIST(interfaceListPtr);
+            foreach (var iface in interfaces.InterfaceInfo)
+            {
+                if (iface.isState != 1) // wlan_interface_state_connected
+                    continue;
+
+                Guid interfaceGuid = iface.InterfaceGuid;
+                result = WlanQueryInterface(
+                    _clientHandle,
+                    ref interfaceGuid,
+                    WLAN_INTF_OPCODE_CURRENT_CONNECTION,
+                    IntPtr.Zero,
+                    out uint dataSize,
+                    out IntPtr dataPtr,
+                    IntPtr.Zero);
+
+                try
+                {
+                    if (result != 0 || dataPtr == IntPtr.Zero ||
+                        dataSize < (uint)Marshal.SizeOf<WLAN_CONNECTION_LINK_RATES_PREFIX>())
+                        continue;
+
+                    var info = Marshal.PtrToStructure<WLAN_CONNECTION_LINK_RATES_PREFIX>(dataPtr);
+                    if (!string.Equals(FormatBssid(info.Bssid), expectedBssid,
+                            StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    if (info.RxRateKbps == 0 && info.TxRateKbps == 0)
+                        return null;
+
+                    return (info.RxRateKbps / 1000.0, info.TxRateKbps / 1000.0);
                 }
                 finally
                 {
@@ -690,7 +783,9 @@ public class WifiNetwork
     /// <summary>
     /// Gets a description of signal quality
     /// </summary>
-    public string SignalQualityDescription => SignalStrength switch
+    public string SignalQualityDescription => DescribeSignalStrength(SignalStrength);
+
+    public static string DescribeSignalStrength(int rssi) => rssi switch
     {
         >= -50 => "Excellent",
         >= -60 => "Good",

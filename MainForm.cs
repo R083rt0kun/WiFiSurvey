@@ -202,10 +202,10 @@ public partial class MainForm : Form
         _networkListView.Columns.Add("SSID", 150);
         _networkListView.Columns.Add("BSSID", 155);
         _networkListView.Columns.Add("Signal", 70);
-        _networkListView.Columns.Add("Quality", 60);
         _networkListView.Columns.Add("Channel", 60);
         _networkListView.Columns.Add("Band", 70);
         _networkListView.ColumnClick += OnNetworkListColumnClick;
+        AutoFitListViewColumns(_networkListView);
 
         // Control panel at bottom
         var controlPanel = new Panel { Dock = DockStyle.Bottom, Height = 60 };
@@ -329,7 +329,7 @@ public partial class MainForm : Form
         AddDetailRow(detailsPanel, 1, "Channel:", out _channelLabel, labelFont, valueFont);
         AddDetailRow(detailsPanel, 2, "Band:", out _bandLabel, labelFont, valueFont);
         AddDetailRow(detailsPanel, 3, "BSSID:", out _bssidLabel, labelFont, valueFont);
-        AddDetailRow(detailsPanel, 4, "Max Rate:", out _speedLabel, labelFont, valueFont);
+        AddDetailRow(detailsPanel, 4, "PHY Rx/Tx:", out _speedLabel, labelFont, valueFont);
 
         _connectionDetailsPanel.Controls.Add(detailsPanel);
         _connectionDetailsPanel.Controls.Add(signalPanel);
@@ -490,13 +490,18 @@ public partial class MainForm : Form
                 int signal = liveRssi ?? connected.SignalStrength;
                 _signalValueLabel.Text = $"{signal} dBm";
                 _signalValueLabel.ForeColor = GetSignalColor(signal);
-                _signalQualityLabel.Text = connected.SignalQualityDescription;
-                _signalQualityLabel.ForeColor = GetSignalColor(connected.SignalStrength);
+                _signalQualityLabel.Text = WifiNetwork.DescribeSignalStrength(signal);
+                _signalQualityLabel.ForeColor = GetSignalColor(signal);
                 _connectedSsidLabel.Text = connected.SSID;
                 _channelLabel.Text = connected.Channel.ToString();
                 _bandLabel.Text = connected.Band;
                 _bssidLabel.Text = connected.BSSID;
-                _speedLabel.Text = connected.MaxRate > 0 ? $"{connected.MaxRate:F0} Mbps" : "--";
+                // Link rates refer to this association, not the BSS legacy rate set.
+                // Guard against a roam between reading connected BSSID and the link rates.
+                var linkRates = _wifiScanner.GetConnectedLinkRates(connected.BSSID);
+                _speedLabel.Text = linkRates is { } rates
+                    ? $"{rates.RxMbps:0.#}/{rates.TxMbps:0.#} Mbps"
+                    : "--";
 
                 // A cached BSS RSSI is not a new measurement every 2 seconds.
                 // If live RSSI isn't available, add one point only after a new scan.
@@ -537,7 +542,6 @@ public partial class MainForm : Form
                 var item = new ListViewItem(ssid);
                 item.SubItems.Add(network.BSSID);
                 item.SubItems.Add($"{network.SignalStrength} dBm");
-                item.SubItems.Add($"{network.LinkQuality}%");
                 item.SubItems.Add(network.Channel.ToString());
                 item.SubItems.Add(network.Band);
                 item.Tag = network.BSSID;
@@ -558,6 +562,7 @@ public partial class MainForm : Form
                 _networkListView.Items.Add(item);
             }
             _networkListView.EndUpdate();
+            AutoFitListViewColumns(_networkListView);
 
             // Refresh graph
             _signalGraphPanel.Invalidate();
@@ -619,6 +624,41 @@ public partial class MainForm : Form
         if (_refreshRateSlider.Tag is Label label)
         {
             label.Text = $"{_refreshRateSlider.Value}s";
+        }
+    }
+
+    /// <summary>
+    /// Size columns from both header captions and currently displayed values.
+    /// Never shrink columns during live updates, so changing BSS scan results do
+    /// not cause width jitter. Long SSIDs are capped to keep other fields visible.
+    /// </summary>
+    private static void AutoFitListViewColumns(ListView listView)
+    {
+        // TextRenderer measures using the actual UI font (including Windows DPI).
+        // Extra padding accommodates native ListView cell/header margins and sorting glyphs.
+        int padding = Math.Max(22, listView.Font.Height + 8);
+        int maxSsidWidth = (int)Math.Ceiling(280 * listView.DeviceDpi / 96.0);
+
+        for (int columnIndex = 0; columnIndex < listView.Columns.Count; columnIndex++)
+        {
+            var column = listView.Columns[columnIndex];
+            int needed = TextRenderer.MeasureText(column.Text, listView.Font).Width + padding;
+
+            foreach (ListViewItem item in listView.Items)
+            {
+                if (item.SubItems.Count <= columnIndex)
+                    continue;
+
+                string text = item.SubItems[columnIndex].Text;
+                needed = Math.Max(needed,
+                    TextRenderer.MeasureText(text, item.Font).Width + padding);
+            }
+
+            if (columnIndex == 0) // SSID / survey point's SSID
+                needed = Math.Min(needed, maxSsidWidth);
+
+            if (column.Width < needed)
+                column.Width = needed;
         }
     }
 
@@ -716,8 +756,9 @@ public partial class MainForm : Form
         _pointsListView.Columns.Add("SSID", 100);
         _pointsListView.Columns.Add("Signal", 60);
         _pointsListView.Columns.Add("Channel", 50);
-        _pointsListView.Columns.Add("Quality", 60);
+        _pointsListView.Columns.Add("Signal Grade", 85);
         _pointsListView.SelectedIndexChanged += OnListViewSelectionChanged;
+        AutoFitListViewColumns(_pointsListView);
 
         // Delete button
         var deleteBtn = new Button
@@ -1125,12 +1166,12 @@ public partial class MainForm : Form
         if (dialog.ShowDialog() == DialogResult.OK)
         {
             var sb = new StringBuilder();
-            sb.AppendLine("Timestamp,X,Y,SSID,BSSID,SignalStrength,LinkQuality,Channel,Band,Frequency,MaxRate,Note");
+            sb.AppendLine("Timestamp,X,Y,SSID,BSSID,SignalStrength,Channel,Band,Frequency,MaxRate,Note");
 
             foreach (var point in _project.MeasurementPoints)
             {
                 sb.AppendLine($"{point.Timestamp:yyyy-MM-dd HH:mm:ss},{point.X:F4},{point.Y:F4}," +
-                    $"\"{point.SSID}\",{point.BSSID},{point.SignalStrength},{point.LinkQuality}," +
+                    $"\"{point.SSID}\",{point.BSSID},{point.SignalStrength}," +
                     $"{point.Channel},{point.Band},{point.Frequency:F1},{point.MaxRate:F1},\"{point.Note}\"");
             }
 
@@ -1213,7 +1254,7 @@ public partial class MainForm : Form
     <style>
         body {{ font-family: 'Segoe UI', sans-serif; margin: 40px; }}
         h1 {{ color: #333; }}
-        .stats {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }}
+        .stats {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }}
         .stat-card {{ background: #f5f5f5; padding: 15px; border-radius: 8px; }}
         .stat-value {{ font-size: 24px; font-weight: bold; color: #0066cc; }}
         table {{ border-collapse: collapse; width: 100%; margin-top: 20px; }}
@@ -1242,15 +1283,11 @@ public partial class MainForm : Form
             <div class=""stat-value"">{stats.AverageSignalStrength:F1} dBm</div>
             <div>Average Signal</div>
         </div>
-        <div class=""stat-card"">
-            <div class=""stat-value"">{stats.AverageLinkQuality:F0}%</div>
-            <div>Average Link Quality</div>
-        </div>
     </div>
 
     <h2>Coverage Distribution</h2>
     <table>
-        <tr><th>Quality</th><th>Count</th><th>Percentage</th></tr>
+        <tr><th>RSSI Grade</th><th>Count</th><th>Measurement Share</th></tr>
         <tr class=""excellent""><td>Excellent (-30 to -50 dBm)</td><td>{stats.ExcellentCoverage}</td><td>{stats.CoveragePercentage("Excellent"):F1}%</td></tr>
         <tr class=""good""><td>Good (-50 to -60 dBm)</td><td>{stats.GoodCoverage}</td><td>{stats.CoveragePercentage("Good"):F1}%</td></tr>
         <tr class=""fair""><td>Fair (-60 to -70 dBm)</td><td>{stats.FairCoverage}</td><td>{stats.CoveragePercentage("Fair"):F1}%</td></tr>
@@ -1260,7 +1297,7 @@ public partial class MainForm : Form
 
     <h2>Measurement Points</h2>
     <table>
-        <tr><th>Time</th><th>SSID</th><th>Signal</th><th>Channel</th><th>Band</th><th>Quality</th></tr>
+        <tr><th>Time</th><th>SSID</th><th>Signal</th><th>Channel</th><th>Band</th><th>RSSI Grade</th></tr>
         {string.Join("\n", _project.MeasurementPoints.Select(p => $@"
         <tr>
             <td>{p.Timestamp:HH:mm:ss}</td>
@@ -1340,6 +1377,7 @@ public partial class MainForm : Form
             item.ForeColor = point.GetSignalColor();
             _pointsListView.Items.Add(item);
         }
+        AutoFitListViewColumns(_pointsListView);
     }
 
     private void UpdateStatistics()
@@ -1350,7 +1388,6 @@ public partial class MainForm : Form
             $"Avg Signal: {stats.AverageSignalStrength:F1} dBm\n" +
             $"Min: {stats.MinSignalStrength} dBm\n" +
             $"Max: {stats.MaxSignalStrength} dBm\n" +
-            $"Avg Quality: {stats.AverageLinkQuality:F0}%\n" +
             $"SSIDs: {stats.UniqueSSIDs}\n" +
             $"Channels: {stats.UniqueChannels}";
     }
@@ -1403,13 +1440,7 @@ internal class ListViewItemComparer : System.Collections.IComparer
                 result = signalX.CompareTo(signalY);
                 break;
 
-            case 3: // Quality (e.g., "85%")
-                var qualX = int.TryParse(textX.Replace("%", ""), out var qX) ? qX : 0;
-                var qualY = int.TryParse(textY.Replace("%", ""), out var qY) ? qY : 0;
-                result = qualX.CompareTo(qualY);
-                break;
-
-            case 4: // Channel (numeric)
+            case 3: // Channel (numeric)
                 var chanX = int.TryParse(textX, out var cX) ? cX : 0;
                 var chanY = int.TryParse(textY, out var cY) ? cY : 0;
                 result = chanX.CompareTo(chanY);
