@@ -568,6 +568,58 @@ public sealed class WifiScanner : IDisposable
     }
 
     /// <summary>
+    /// Returns the SSID advertised by the actual connected BSS from Windows
+    /// association attributes, even when that BSSID is absent in the BSS cache.
+    /// The caller supplies the observed BSSID to avoid mixing two associations
+    /// when the client roams between queries.
+    /// </summary>
+    public string? GetConnectedSsid(string expectedBssid)
+    {
+        if (_clientHandle == IntPtr.Zero || _disposed || string.IsNullOrWhiteSpace(expectedBssid))
+            return null;
+
+        int result = WlanEnumInterfaces(_clientHandle, IntPtr.Zero, out IntPtr listPtr);
+        if (result != 0 || listPtr == IntPtr.Zero)
+            return null;
+
+        try
+        {
+            var interfaces = new WLAN_INTERFACE_INFO_LIST(listPtr);
+            foreach (var iface in interfaces.InterfaceInfo)
+            {
+                if (iface.isState != 1) continue;
+                Guid guid = iface.InterfaceGuid;
+                result = WlanQueryInterface(_clientHandle, ref guid,
+                    WLAN_INTF_OPCODE_CURRENT_CONNECTION, IntPtr.Zero,
+                    out uint size, out IntPtr data, IntPtr.Zero);
+                try
+                {
+                    if (result != 0 || data == IntPtr.Zero ||
+                        size < (uint)Marshal.SizeOf<WLAN_CONNECTION_PREFIX>())
+                        continue;
+                    var info = Marshal.PtrToStructure<WLAN_CONNECTION_PREFIX>(data);
+                    if (!string.Equals(FormatBssid(info.Bssid), expectedBssid,
+                            StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    int length = Math.Clamp(info.Ssid.uSSIDLength, 0, DOT11_SSID_MAX_LENGTH);
+                    return info.Ssid.ucSSID == null ? null :
+                        Encoding.UTF8.GetString(info.Ssid.ucSSID, 0, length);
+                }
+                finally
+                {
+                    if (data != IntPtr.Zero)
+                        WlanFreeMemory(data);
+                }
+            }
+            return null;
+        }
+        finally
+        {
+            WlanFreeMemory(listPtr);
+        }
+    }
+
+    /// <summary>
     /// Returns the receive and transmit PHY link rates reported by Windows for
     /// the current association. These are neither application throughput nor
     /// the maximum supported legacy rates of a BSS. Returns null when unavailable
@@ -739,10 +791,14 @@ public sealed class WifiScanner : IDisposable
             return (int)((frequencyMhz - 5000) / 5);
         }
 
-        // 6 GHz band (WiFi 6E)
-        if (frequencyMhz >= 5935 && frequencyMhz <= 7115)
+        // 6 GHz: the special 20 MHz channel 2 is centered at 5935 MHz.
+        // Standard channel numbering uses channel 1 at 5955 MHz, with
+        // 5 MHz channel-number spacing: channel = (MHz - 5950) / 5.
+        if (frequencyMhz == 5935) return 2;
+        if (frequencyMhz >= 5955 && frequencyMhz <= 7115 &&
+            (frequencyMhz - 5950) % 5 == 0)
         {
-            return (int)((frequencyMhz - 5950) / 5) + 1;
+            return (int)((frequencyMhz - 5950) / 5);
         }
 
         return 0;

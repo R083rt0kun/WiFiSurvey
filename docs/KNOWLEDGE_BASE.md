@@ -54,3 +54,34 @@ The existing `MaxRate` field in Site Survey CSV export comes from BSS rate infor
 ## Maintenance
 
 When adding a metric to the application, document its source/API, units, scope (connected interface versus scanned BSS versus survey point), update frequency, interpretation, limitations, and verification procedure. Do not convert an undocumented or vendor-specific estimate into a standards-based claim.
+
+## Live Monitor: signal history and scan status
+
+- **Signal history** plots individual RSSI observations against their actual
+  timestamps within a sliding 60-second window. The chart does not join values
+  obtained from different BSSIDs. A change of connected AP clears the old
+  trace and briefly shows an `AP changed` annotation.
+- **Last successful scan** means that Windows acknowledged at least one WLAN
+  scan completion. It does **not** guarantee that every BSS entry is freshly
+  measured or that every available AP is visible. Wi-Fi discovery is subject to
+  hardware, driver, channel and RF limitations.
+- **SCAN UNCONFIRMED (BSS cache)** means that the most recent requested scan
+  was not confirmed (or no successful scan has been observed in this session).
+  A nonempty network list may still be returned from the Windows cache.
+- **OLD SCAN (BSS cache)** means that the last confirmed scan completion exceeds
+  the application's conservative age threshold. It does not mean the actual
+  networks have disappeared.
+- **FALLBACK: last nonempty BSS list** means the app is displaying its own
+  retained list because Windows returned no BSS entries on the latest read.
+  These retained observations are for display, not new survey measurements.
+- **Connected AP not in BSS list** means the current association was identified
+  by Windows, but the corresponding BSSID was missing from the discovered BSS
+  list. The connection's own SSID, RSSI and PHY rates may still be available;
+  channel and band remain unknown rather than being inferred from a neighbor.
+
+## 6 GHz channel numbering
+
+Normal 6 GHz numbering uses channel 1 at 5955 MHz and increments the channel
+number by one for each additional 5 MHz of center frequency. 5935 MHz is the
+special case for channel 2. A channel number alone must not be confused with
+its channel width.

@@ -35,6 +35,8 @@ public partial class MainForm : Form
     private bool _scanInProgress;
     private bool _measurementInProgress;
     private string _scanStatusText = "Scan pending";
+    // A nonempty Windows BSS cache is not proof of a successful recent scan.
+    private bool? _lastScanSucceeded;
     private DateTime? _lastBssHistorySample;
     private Label _signalValueLabel = null!;
     private Label _signalQualityLabel = null!;
@@ -506,6 +508,7 @@ public partial class MainForm : Form
         {
             var result = await _wifiScanner.ScanAsync();
             if (IsDisposed || Disposing) return;
+            _lastScanSucceeded = result.Succeeded;
             _scanStatusText = result.Succeeded
                 ? $"{result.Description} at {result.Timestamp:HH:mm:ss}"
                 : $"{result.Description}";
@@ -516,6 +519,7 @@ public partial class MainForm : Form
         {
             if (!IsDisposed && !Disposing)
             {
+                _lastScanSucceeded = false;
                 _scanStatusText = $"Scan error: {ex.Message}";
                 _statusLabel.Text = _scanStatusText;
             }
@@ -573,18 +577,28 @@ public partial class MainForm : Form
             }
             else
             {
-                _signalValueLabel.Text = "-- dBm";
-                _signalValueLabel.ForeColor = Color.Gray;
-                // A connected BSSID may be absent from an incomplete scan.
-                // In that case, do not report a different AP or invent RSSI.
+                // The BSS cache can omit the associated AP. Independent
+                // association queries still provide SSID, RSSI and PHY rate.
+                // Never substitute a neighboring AP's signal or channel.
+                int? rssi = !string.IsNullOrEmpty(connectedBssid)
+                    ? _wifiScanner.GetConnectedRssi() : null;
+                _signalValueLabel.Text = rssi is int value ? $"{value} dBm" : "-- dBm";
+                _signalValueLabel.ForeColor = rssi is int strength
+                    ? GetSignalColor(strength) : Color.Gray;
                 _signalQualityLabel.Text = !string.IsNullOrEmpty(connectedBssid)
-                    ? "Connected AP not in scan" : "No Connection";
+                    ? "Connected AP not in BSS list" : "No Connection";
                 _signalQualityLabel.ForeColor = Color.Gray;
-                _connectedSsidLabel.Text = "--";
+                _connectedSsidLabel.Text = !string.IsNullOrEmpty(connectedBssid)
+                    ? _wifiScanner.GetConnectedSsid(connectedBssid) ?? "--" : "--";
                 _channelLabel.Text = "--";
                 _bandLabel.Text = "--";
                 _bssidLabel.Text = connectedBssid ?? "--";
-                _speedLabel.Text = "--";
+                var rates = !string.IsNullOrEmpty(connectedBssid)
+                    ? _wifiScanner.GetConnectedLinkRates(connectedBssid) : null;
+                _speedLabel.Text = rates is { } phy
+                    ? $"{phy.RxMbps:0.#}/{phy.TxMbps:0.#} Mbps" : "--";
+                if (rssi.HasValue)
+                    RecordSignalSample(rssi.Value, freshSample: true);
             }
 
             // Preserve selection and viewport while rebuilding the scan list.
@@ -660,7 +674,20 @@ public partial class MainForm : Form
             string apStatus = connected == null && !string.IsNullOrEmpty(connectedBssid)
                 ? $"{bssidCount} BSSIDs; connected BSSID not in scan"
                 : $"{bssidCount} BSSIDs detected";
-            _statusLabel.Text = $"Live Monitor: {apStatus}{(showingOldResults ? " (STALE LIST)" : "")} | {_scanStatusText}";
+            // BSS entries are cached by Windows. Their presence does not prove
+            // that the most recent requested RF scan succeeded. Present the
+            // confirmed scan age and failure status explicitly.
+            var lastCompleted = _wifiScanner.LastCompletedScan;
+            bool scanTooOld = lastCompleted is not DateTime completed ||
+                DateTime.Now - completed > TimeSpan.FromSeconds(ScanIntervalSeconds * 2 + 10);
+            bool scanUnconfirmed = _lastScanSucceeded != true;
+            string freshness = showingOldResults
+                ? " | FALLBACK: last nonempty BSS list"
+                : scanUnconfirmed ? " | SCAN UNCONFIRMED (BSS cache)"
+                : scanTooOld ? " | OLD SCAN (BSS cache)" : "";
+            string lastSuccessful = lastCompleted is DateTime when
+                ? $" | Last successful scan: {when:HH:mm:ss}" : " | No confirmed scan yet";
+            _statusLabel.Text = $"Live Monitor: {apStatus}{freshness} | {_scanStatusText}{lastSuccessful}";
         }
         catch (Exception ex)
         {
