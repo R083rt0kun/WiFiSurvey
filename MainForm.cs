@@ -30,6 +30,12 @@ public partial class MainForm : Form
     private Panel _connectionDetailsPanel = null!;
     private ListView _networkListView = null!;
     private System.Windows.Forms.Timer _monitorTimer = null!;
+    private const int ScanIntervalSeconds = 20;
+    private DateTime _lastScanStartUtc = DateTime.MinValue;
+    private bool _scanInProgress;
+    private bool _measurementInProgress;
+    private string _scanStatusText = "Scan pending";
+    private DateTime? _lastBssHistorySample;
     private Label _signalValueLabel = null!;
     private Label _signalQualityLabel = null!;
     private Label _connectedSsidLabel = null!;
@@ -67,6 +73,7 @@ public partial class MainForm : Form
             return;
 
         RefreshLiveMonitor();
+        _ = ScanAndRefreshAsync(force: true);
         if (_autoRefreshCheckbox.Checked)
             _monitorTimer.Start();
     }
@@ -244,7 +251,7 @@ public partial class MainForm : Form
             Location = new Point(260, 15),
             Width = 100
         };
-        manualRefreshBtn.Click += (s, e) => RefreshLiveMonitor();
+        manualRefreshBtn.Click += async (s, e) => await ScanAndRefreshAsync(force: true);
 
         controlPanel.Controls.AddRange(new Control[] {
             _autoRefreshCheckbox, refreshRateLabel, _refreshRateSlider,
@@ -423,6 +430,43 @@ public partial class MainForm : Form
         g.DrawString("Time (60s)", axisFont, textBrush, rect.Right - 50, rect.Bottom + 5);
     }
 
+    // A full RF scan is costly, so refresh the BSS cache frequently but
+    // initiate physical scans only at a controlled interval or on demand.
+    private async Task ScanAndRefreshAsync(bool force = false)
+    {
+        if (_wifiScanner == null || _scanInProgress || IsDisposed || Disposing)
+            return;
+        if (!force && (DateTime.UtcNow - _lastScanStartUtc).TotalSeconds < ScanIntervalSeconds)
+            return;
+
+        _scanInProgress = true;
+        _lastScanStartUtc = DateTime.UtcNow;
+        _scanStatusText = "Scanning...";
+        _statusLabel.Text = _scanStatusText;
+        try
+        {
+            var result = await _wifiScanner.ScanAsync();
+            if (IsDisposed || Disposing) return;
+            _scanStatusText = result.Succeeded
+                ? $"{result.Description} at {result.Timestamp:HH:mm:ss}"
+                : $"{result.Description}";
+            RefreshLiveMonitor();
+        }
+        catch (OperationCanceledException) { /* Form is closing. */ }
+        catch (Exception ex)
+        {
+            if (!IsDisposed && !Disposing)
+            {
+                _scanStatusText = $"Scan error: {ex.Message}";
+                _statusLabel.Text = _scanStatusText;
+            }
+        }
+        finally
+        {
+            _scanInProgress = false;
+        }
+    }
+
     private void RefreshLiveMonitor()
     {
         if (_wifiScanner == null) return;
@@ -430,6 +474,7 @@ public partial class MainForm : Form
         try
         {
             var networks = _wifiScanner.GetAvailableNetworks();
+            bool showingOldResults = _wifiScanner.LastReadUsedOldResults;
             // Resolve the actual Windows connection by BSSID instead of
             // assuming that the strongest detected AP is the connected one.
             var connectedBssid = _wifiScanner.GetConnectedBssid();
@@ -439,8 +484,11 @@ public partial class MainForm : Form
             // Update connection details
             if (connected != null)
             {
-                _signalValueLabel.Text = $"{connected.SignalStrength} dBm";
-                _signalValueLabel.ForeColor = GetSignalColor(connected.SignalStrength);
+                // Real-time RSSI comes from WlanQueryInterface, not the BSS scan cache.
+                int? liveRssi = _wifiScanner.GetConnectedRssi();
+                int signal = liveRssi ?? connected.SignalStrength;
+                _signalValueLabel.Text = $"{signal} dBm";
+                _signalValueLabel.ForeColor = GetSignalColor(signal);
                 _signalQualityLabel.Text = connected.SignalQualityDescription;
                 _signalQualityLabel.ForeColor = GetSignalColor(connected.SignalStrength);
                 _connectedSsidLabel.Text = connected.SSID;
@@ -449,10 +497,19 @@ public partial class MainForm : Form
                 _bssidLabel.Text = connected.BSSID;
                 _speedLabel.Text = connected.MaxRate > 0 ? $"{connected.MaxRate:F0} Mbps" : "--";
 
-                // Update signal history
-                _signalHistory.Add(connected.SignalStrength);
-                if (_signalHistory.Count > MaxSignalHistoryPoints)
-                    _signalHistory.RemoveAt(0);
+                // A cached BSS RSSI is not a new measurement every 2 seconds.
+                // If live RSSI isn't available, add one point only after a new scan.
+                bool newBssObservation = !showingOldResults &&
+                    _wifiScanner.LastCompletedScan is DateTime completedAt &&
+                    _lastBssHistorySample != completedAt;
+                if (liveRssi.HasValue || newBssObservation)
+                {
+                    _signalHistory.Add(signal);
+                    if (_signalHistory.Count > MaxSignalHistoryPoints)
+                        _signalHistory.RemoveAt(0);
+                    if (newBssObservation)
+                        _lastBssHistorySample = _wifiScanner.LastCompletedScan;
+                }
             }
             else
             {
@@ -503,9 +560,10 @@ public partial class MainForm : Form
             // Refresh graph
             _signalGraphPanel.Invalidate();
 
-            _statusLabel.Text = connected == null && !string.IsNullOrEmpty(connectedBssid)
-                ? $"Live Monitor: {networks.Count} APs; connected AP not in scan"
-                : $"Live Monitor: {networks.Count} APs detected";
+            string apStatus = connected == null && !string.IsNullOrEmpty(connectedBssid)
+                ? $"{networks.Count} APs; connected AP not in scan"
+                : $"{networks.Count} APs detected";
+            _statusLabel.Text = $"Live Monitor: {apStatus}{(showingOldResults ? " (STALE LIST)" : "")} | {_scanStatusText}";
         }
         catch (Exception ex)
         {
@@ -530,6 +588,7 @@ public partial class MainForm : Form
         if (_mainTabControl.SelectedTab == _liveMonitorTab)
         {
             RefreshLiveMonitor();
+            _ = ScanAndRefreshAsync();
         }
     }
 
@@ -578,6 +637,7 @@ public partial class MainForm : Form
         if (_mainTabControl.SelectedTab == _liveMonitorTab)
         {
             RefreshLiveMonitor();
+            _ = ScanAndRefreshAsync();
             if (_autoRefreshCheckbox.Checked)
             {
                 _monitorTimer.Start();
@@ -735,7 +795,8 @@ public partial class MainForm : Form
 
         // Monitor Menu
         var monitorMenu = new ToolStripMenuItem("&Monitor");
-        monitorMenu.DropDownItems.Add("&Refresh Now", null, (s, e) => RefreshLiveMonitor());
+        monitorMenu.DropDownItems.Add("&Refresh Now", null,
+            async (s, e) => await ScanAndRefreshAsync(force: true));
         monitorMenu.DropDownItems.Add(new ToolStripSeparator());
         var startMonitor = new ToolStripMenuItem("&Start Auto-Refresh");
         startMonitor.Click += (s, e) => { _autoRefreshCheckbox.Checked = true; _monitorTimer.Start(); };
@@ -953,20 +1014,27 @@ public partial class MainForm : Form
         }
     }
 
-    private void TakeMeasurement(double x, double y)
+    private async void TakeMeasurement(double x, double y)
     {
         if (_wifiScanner == null)
         {
             MessageBox.Show("WiFi scanner not available.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return;
         }
+        if (_measurementInProgress) return;
+        _measurementInProgress = true;
 
-        _statusLabel.Text = "Taking measurement...";
+        _statusLabel.Text = "Scanning for survey measurement... keep the laptop in place";
         _progressBar.Visible = true;
-        Application.DoEvents();
 
         try
         {
+            // Survey points must never silently use the old BSS cache.
+            var scanResult = await _wifiScanner.ScanAsync();
+            if (!scanResult.Succeeded)
+                throw new InvalidOperationException($"Fresh scan required: {scanResult.Description}");
+            if (IsDisposed || Disposing) return;
+
             var measurement = _wifiScanner.TakeMeasurement();
             var point = MeasurementPoint.FromMeasurement(x, y, measurement);
 
@@ -979,12 +1047,16 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to take measurement: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            _statusLabel.Text = "Measurement failed";
+            if (!IsDisposed && !Disposing)
+            {
+                MessageBox.Show($"Failed to take measurement: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                _statusLabel.Text = "Measurement failed";
+            }
         }
         finally
         {
-            _progressBar.Visible = false;
+            _measurementInProgress = false;
+            if (!IsDisposed && !Disposing) _progressBar.Visible = false;
         }
     }
 
