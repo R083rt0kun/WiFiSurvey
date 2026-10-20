@@ -45,9 +45,14 @@ public partial class MainForm : Form
     private Label _speedLabel = null!;
     private CheckBox _autoRefreshCheckbox = null!;
     private TrackBar _refreshRateSlider = null!;
-    private List<int> _signalHistory = new();
-    private const int MaxSignalHistoryPoints = 60;
-    private string? _connectedBssid;
+    // Time-based history: every point represents an actual observation time.
+    // Never join signal samples from different BSSIDs into one trace.
+    private readonly List<(DateTime Utc, int Rssi)> _signalHistory = new();
+    private static readonly TimeSpan SignalHistoryWindow = TimeSpan.FromSeconds(60);
+    private DateTime _lastHistorySampleUtc = DateTime.MinValue;
+    private string? _historyBssid;
+    private string? _connectionEventText;
+    private DateTime _connectionEventUtc = DateTime.MinValue;
     private int _networkListSortColumn = -1;
     private SortOrder _networkListSortOrder = SortOrder.None;
 
@@ -386,49 +391,102 @@ public partial class MainForm : Form
             g.DrawString($"{level}", axisFont, textBrush, 5, y - 6);
         }
 
-        // Draw signal line
-        if (_signalHistory.Count > 1)
+        // Samples are positioned using elapsed time, not sample index.
+        // The graph always represents the last 60 seconds even when the
+        // refresh interval changes or scans finish between timer ticks.
+        var now = DateTime.UtcNow;
+        var visible = _signalHistory.Where(sample =>
+            sample.Utc >= now - SignalHistoryWindow && sample.Utc <= now).ToArray();
+        if (visible.Length > 0)
         {
-            var points = new PointF[_signalHistory.Count];
-            for (int i = 0; i < _signalHistory.Count; i++)
+            var points = new PointF[visible.Length];
+            for (int i = 0; i < visible.Length; i++)
             {
-                float x = rect.X + (i / (float)(MaxSignalHistoryPoints - 1)) * rect.Width;
-                float signal = Math.Max(-100, Math.Min(-30, _signalHistory[i]));
+                float age = (float)(now - visible[i].Utc).TotalSeconds;
+                float x = rect.Right - (age / (float)SignalHistoryWindow.TotalSeconds) * rect.Width;
+                float signal = Math.Clamp(visible[i].Rssi, -100, -30);
                 float y = rect.Y + ((-30 - signal) / 70f) * rect.Height;
                 points[i] = new PointF(x, y);
             }
 
-            // Fill under curve
-            using var fillBrush = new System.Drawing.Drawing2D.LinearGradientBrush(
-                new Point(0, rect.Y), new Point(0, rect.Bottom),
-                Color.FromArgb(80, 0, 200, 100),
-                Color.FromArgb(10, 0, 200, 100));
-
-            var fillPoints = new PointF[points.Length + 2];
-            Array.Copy(points, fillPoints, points.Length);
-            fillPoints[points.Length] = new PointF(points[^1].X, rect.Bottom);
-            fillPoints[points.Length + 1] = new PointF(points[0].X, rect.Bottom);
-            g.FillPolygon(fillBrush, fillPoints);
-
-            // Draw line
-            using var linePen = new Pen(Color.FromArgb(0, 200, 100), 2);
-            g.DrawLines(linePen, points);
-
-            // Draw current value dot
-            if (points.Length > 0)
+            if (points.Length > 1)
             {
-                var lastPoint = points[^1];
-                g.FillEllipse(Brushes.White, lastPoint.X - 5, lastPoint.Y - 5, 10, 10);
-                g.FillEllipse(Brushes.LimeGreen, lastPoint.X - 3, lastPoint.Y - 3, 6, 6);
+                using var fillBrush = new System.Drawing.Drawing2D.LinearGradientBrush(
+                    new Point(0, rect.Y), new Point(0, rect.Bottom),
+                    Color.FromArgb(80, 0, 200, 100),
+                    Color.FromArgb(10, 0, 200, 100));
+                var fillPoints = new PointF[points.Length + 2];
+                Array.Copy(points, fillPoints, points.Length);
+                fillPoints[points.Length] = new PointF(points[^1].X, rect.Bottom);
+                fillPoints[points.Length + 1] = new PointF(points[0].X, rect.Bottom);
+                g.FillPolygon(fillBrush, fillPoints);
+
+                using var linePen = new Pen(Color.FromArgb(0, 200, 100), 2);
+                g.DrawLines(linePen, points);
             }
+
+            var lastPoint = points[^1];
+            g.FillEllipse(Brushes.White, lastPoint.X - 5, lastPoint.Y - 5, 10, 10);
+            g.FillEllipse(Brushes.LimeGreen, lastPoint.X - 3, lastPoint.Y - 3, 6, 6);
         }
 
-        // Draw axes
+        // The connection event is shown separately; the old AP's history
+        // is intentionally cleared rather than joined to a new BSSID.
+        if (!string.IsNullOrEmpty(_connectionEventText) &&
+            now - _connectionEventUtc < SignalHistoryWindow)
+        {
+            using var eventBrush = new SolidBrush(Color.FromArgb(255, 215, 125));
+            g.DrawString(_connectionEventText, axisFont, eventBrush,
+                rect.X + 6, rect.Y + 5);
+        }
+
+        // Time-axis tick marks describe a real fixed-duration window.
         g.DrawLine(axisPen, rect.X, rect.Y, rect.X, rect.Bottom);
         g.DrawLine(axisPen, rect.X, rect.Bottom, rect.Right, rect.Bottom);
+        g.DrawString("-60s", axisFont, textBrush, rect.X, rect.Bottom + 5);
+        g.DrawString("-30s", axisFont, textBrush, rect.X + rect.Width / 2 - 14, rect.Bottom + 5);
+        g.DrawString("Now", axisFont, textBrush, rect.Right - 24, rect.Bottom + 5);
+    }
 
-        // X-axis label
-        g.DrawString("Time (60s)", axisFont, textBrush, rect.Right - 50, rect.Bottom + 5);
+    private void ObserveConnectedBssid(string? currentBssid)
+    {
+        // Read the association separately from the BSS list: a missing cache
+        // entry must not be mistaken for a roam or disconnection.
+        if (string.Equals(_historyBssid, currentBssid, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if (!string.IsNullOrEmpty(_historyBssid))
+        {
+            _connectionEventText = string.IsNullOrEmpty(currentBssid)
+                ? $"Disconnected at {DateTime.Now:HH:mm:ss}"
+                : $"AP changed at {DateTime.Now:HH:mm:ss}";
+            _connectionEventUtc = DateTime.UtcNow;
+        }
+        else if (!string.IsNullOrEmpty(currentBssid))
+        {
+            _connectionEventText = null; // First connection is not a roam.
+        }
+
+        _historyBssid = currentBssid;
+        _signalHistory.Clear();
+        _lastBssHistorySample = null;
+        _lastHistorySampleUtc = DateTime.MinValue;
+    }
+
+    private void RecordSignalSample(int rssi, bool freshSample)
+    {
+        if (!freshSample || string.IsNullOrEmpty(_historyBssid))
+            return;
+
+        var now = DateTime.UtcNow;
+        // Prevent an immediate scan-completion refresh and a timer tick from
+        // adding duplicate samples at nearly the same instant.
+        if (now - _lastHistorySampleUtc >= TimeSpan.FromMilliseconds(750))
+        {
+            _signalHistory.Add((now, rssi));
+            _lastHistorySampleUtc = now;
+        }
+        _signalHistory.RemoveAll(sample => sample.Utc < now - SignalHistoryWindow);
     }
 
     // A full RF scan is costly, so refresh the BSS cache frequently but
@@ -479,6 +537,7 @@ public partial class MainForm : Form
             // Resolve the actual Windows connection by BSSID instead of
             // assuming that the strongest detected AP is the connected one.
             var connectedBssid = _wifiScanner.GetConnectedBssid();
+            ObserveConnectedBssid(connectedBssid);
             var connected = networks.FirstOrDefault(n =>
                 string.Equals(n.BSSID, connectedBssid, StringComparison.OrdinalIgnoreCase));
 
@@ -508,14 +567,9 @@ public partial class MainForm : Form
                 bool newBssObservation = !showingOldResults &&
                     _wifiScanner.LastCompletedScan is DateTime completedAt &&
                     _lastBssHistorySample != completedAt;
-                if (liveRssi.HasValue || newBssObservation)
-                {
-                    _signalHistory.Add(signal);
-                    if (_signalHistory.Count > MaxSignalHistoryPoints)
-                        _signalHistory.RemoveAt(0);
-                    if (newBssObservation)
-                        _lastBssHistorySample = _wifiScanner.LastCompletedScan;
-                }
+                RecordSignalSample(signal, liveRssi.HasValue || newBssObservation);
+                if (newBssObservation)
+                    _lastBssHistorySample = _wifiScanner.LastCompletedScan;
             }
             else
             {
@@ -533,7 +587,14 @@ public partial class MainForm : Form
                 _speedLabel.Text = "--";
             }
 
-            // Update network list
+            // Preserve selection and viewport while rebuilding the scan list.
+            // The BSSID is stable across updates; a row index is not.
+            var selectedBssids = _networkListView.SelectedItems.Cast<ListViewItem>()
+                .Select(item => item.Tag as string)
+                .Where(bssid => !string.IsNullOrEmpty(bssid))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var focusedBssid = _networkListView.FocusedItem?.Tag as string;
+            var firstVisibleBssid = _networkListView.TopItem?.Tag as string;
             _networkListView.BeginUpdate();
             _networkListView.Items.Clear();
             foreach (var network in networks.OrderByDescending(n => n.SignalStrength))
@@ -553,13 +614,35 @@ public partial class MainForm : Form
                     item.Font = new Font(_networkListView.Font, FontStyle.Bold);
                     item.BackColor = Color.FromArgb(230, 255, 230);
                     item.Text = $"\u2713 {ssid}";  // Checkmark prefix
-                    _connectedBssid = network.BSSID;
+                    // The connected BSSID is tracked independently by
+                    // ObserveConnectedBssid(), even if this BSS entry vanishes.
                 }
                 else
                 {
                     item.ForeColor = GetSignalColor(network.SignalStrength);
                 }
                 _networkListView.Items.Add(item);
+            }
+            // Reapply the user's chosen sort after refreshing the rows.
+            if (_networkListSortColumn >= 0)
+                _networkListView.Sort();
+
+            foreach (ListViewItem item in _networkListView.Items)
+            {
+                if (item.Tag is string bssid)
+                {
+                    item.Selected = selectedBssids.Contains(bssid);
+                    if (string.Equals(bssid, focusedBssid, StringComparison.OrdinalIgnoreCase))
+                        item.Focused = true;
+                }
+            }
+            if (!string.IsNullOrEmpty(firstVisibleBssid))
+            {
+                var previousTop = _networkListView.Items.Cast<ListViewItem>()
+                    .FirstOrDefault(item => string.Equals(item.Tag as string,
+                        firstVisibleBssid, StringComparison.OrdinalIgnoreCase));
+                if (previousTop != null)
+                    _networkListView.TopItem = previousTop;
             }
             _networkListView.EndUpdate();
             AutoFitListViewColumns(_networkListView);
@@ -855,7 +938,13 @@ public partial class MainForm : Form
         monitorMenu.DropDownItems.Add(startMonitor);
         monitorMenu.DropDownItems.Add(stopMonitor);
         monitorMenu.DropDownItems.Add(new ToolStripSeparator());
-        monitorMenu.DropDownItems.Add("&Clear History", null, (s, e) => { _signalHistory.Clear(); _signalGraphPanel.Invalidate(); });
+        monitorMenu.DropDownItems.Add("&Clear History", null, (s, e) => {
+            _signalHistory.Clear();
+            _lastHistorySampleUtc = DateTime.MinValue;
+            _lastBssHistorySample = null;
+            _connectionEventText = null;
+            _signalGraphPanel.Invalidate();
+        });
 
         // Survey Menu
         var surveyMenu = new ToolStripMenuItem("&Survey");
