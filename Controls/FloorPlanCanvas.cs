@@ -1,8 +1,8 @@
 using System.Drawing.Drawing2D;
-using WifiSurvey.Models;
-using WifiSurvey.Services;
+using WiFiSurvey.Models;
+using WiFiSurvey.Services;
 
-namespace WifiSurvey.Controls;
+namespace WiFiSurvey.Controls;
 
 /// <summary>
 /// Custom control for displaying floor plans with measurement points and heatmap overlay

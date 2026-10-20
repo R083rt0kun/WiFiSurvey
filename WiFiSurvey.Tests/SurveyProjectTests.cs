@@ -1,8 +1,8 @@
 using FluentAssertions;
 using System.Text.Json;
-using WifiSurvey.Models;
+using WiFiSurvey.Models;
 
-namespace WifiSurvey.Tests;
+namespace WiFiSurvey.Tests;
 
 /// <summary>
 /// Unit tests for SurveyProject
@@ -14,7 +14,7 @@ public class SurveyProjectTests
 
     public SurveyProjectTests()
     {
-        _tempDirectory = Path.Combine(Path.GetTempPath(), "WifiSurveyTests", Guid.NewGuid().ToString());
+        _tempDirectory = Path.Combine(Path.GetTempPath(), "WiFiSurveyTests", Guid.NewGuid().ToString());
         Directory.CreateDirectory(_tempDirectory);
     }
 

@@ -1,11 +1,11 @@
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
-using WifiSurvey.Models;
+using WiFiSurvey.Models;
 
-namespace WifiSurvey.Services;
+namespace WiFiSurvey.Services;
 
 /// <summary>
-/// Generates heatmap overlays from WiFi measurement data
+/// Generates heatmap overlays from Wi-Fi measurement data
 /// </summary>
 public class HeatmapGenerator
 {

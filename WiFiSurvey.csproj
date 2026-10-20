@@ -8,10 +8,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <!-- <ApplicationIcon>wifi.ico</ApplicationIcon> -->
-    <Title>WiFi Survey Tool</Title>
-    <Description>WiFi site survey and heatmap generation tool for IT professionals</Description>
+    <Title>Wi-Fi Survey</Title>
+    <Description>Wi-Fi site survey and heatmap generation tool for IT professionals</Description>
     <Company>R083rt0kun</Company>
-    <Product>WifiSurvey</Product>
+    <Product>WiFiSurvey</Product>
     <Version>1.1.0</Version>
     <Copyright>Copyright (c) 2025 CosmicBytez; Copyright (c) 2026 R083rt0kun (modifications)</Copyright>
 
@@ -38,9 +38,9 @@
 
   <ItemGroup>
     <!-- Exclude test files from main project -->
-    <Compile Remove="WifiSurvey.Tests\**" />
-    <EmbeddedResource Remove="WifiSurvey.Tests\**" />
-    <None Remove="WifiSurvey.Tests\**" />
+    <Compile Remove="WiFiSurvey.Tests\**" />
+    <EmbeddedResource Remove="WiFiSurvey.Tests\**" />
+    <None Remove="WiFiSurvey.Tests\**" />
   </ItemGroup>
 
 </Project>

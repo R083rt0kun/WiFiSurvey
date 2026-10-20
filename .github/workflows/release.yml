@@ -9,7 +9,7 @@ on:
     branches: [ main ]
     paths:
       - '.github/workflows/release.yml'
-      - 'WifiSurvey.csproj'
+      - 'WiFiSurvey.csproj'
   workflow_dispatch:
 
 permissions:
@@ -44,10 +44,10 @@ jobs:
           "version=$version" >> $env:GITHUB_OUTPUT
 
       - name: Test
-        run: dotnet test WifiSurvey.sln --configuration Release
+        run: dotnet test WiFiSurvey.sln --configuration Release
 
       - name: Publish
-        run: dotnet publish WifiSurvey.csproj --configuration Release --output publish -p:Version=${{ steps.ver.outputs.version }}
+        run: dotnet publish WiFiSurvey.csproj --configuration Release --output publish -p:Version=${{ steps.ver.outputs.version }}
 
       - name: Package and verify version
         id: pkg
@@ -55,7 +55,7 @@ jobs:
         env:
           RELEASE_VERSION: ${{ steps.ver.outputs.version }}
         run: |
-          $exe = 'publish/WifiSurvey.exe'
+          $exe = 'publish/WiFiSurvey.exe'
           if (-not (Test-Path $exe)) {
             throw "Published executable not found: $exe"
           }
@@ -65,7 +65,7 @@ jobs:
             throw "EXE FileVersion '$actual' does not match expected '$expected'."
           }
           Copy-Item -Path README.md, LICENSE -Destination publish -ErrorAction Stop
-          $zip = "WifiSurvey-$env:RELEASE_VERSION-win-x64.zip"
+          $zip = "WiFiSurvey-$env:RELEASE_VERSION-win-x64.zip"
           Compress-Archive -Path publish/* -DestinationPath $zip
           (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() + "  $zip" |
             Out-File -Encoding ascii "$zip.sha256"
@@ -74,7 +74,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: WifiSurvey-win-x64
+          name: WiFiSurvey-win-x64
           path: |
             ${{ steps.pkg.outputs.zip }}
             ${{ steps.pkg.outputs.zip }}.sha256
@@ -92,7 +92,7 @@ jobs:
       - name: Download packaged build
         uses: actions/download-artifact@v8
         with:
-          name: WifiSurvey-win-x64
+          name: WiFiSurvey-win-x64
 
       - name: Verify checksum and create release
         shell: bash
@@ -101,7 +101,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           shopt -s nullglob
-          archives=(WifiSurvey-*-win-x64.zip)
+          archives=(WiFiSurvey-*-win-x64.zip)
           if [[ ${#archives[@]} -ne 1 ]]; then
             echo 'Expected exactly one ZIP artifact.' >&2
             exit 1

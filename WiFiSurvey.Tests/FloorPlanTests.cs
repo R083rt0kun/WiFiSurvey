@@ -1,9 +1,9 @@
 using FluentAssertions;
 using System.Drawing;
 using System.Drawing.Imaging;
-using WifiSurvey.Models;
+using WiFiSurvey.Models;
 
-namespace WifiSurvey.Tests;
+namespace WiFiSurvey.Tests;
 
 /// <summary>
 /// Unit tests for FloorPlan model
@@ -16,7 +16,7 @@ public class FloorPlanTests
 
     public FloorPlanTests()
     {
-        _tempDirectory = Path.Combine(Path.GetTempPath(), "WifiSurveyTests", Guid.NewGuid().ToString());
+        _tempDirectory = Path.Combine(Path.GetTempPath(), "WiFiSurveyTests", Guid.NewGuid().ToString());
         Directory.CreateDirectory(_tempDirectory);
 
         // Create a test image

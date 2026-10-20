@@ -2,13 +2,13 @@ using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace WifiSurvey.Services;
+namespace WiFiSurvey.Services;
 
 /// <summary>
-/// WiFi scanning service using the Native WiFi API (wlanapi.dll)
-/// Provides signal strength, SSID, channel, and other WiFi metrics
+/// Wi-Fi scanning service using the Native Wi-Fi API (wlanapi.dll)
+/// Provides signal strength, SSID, channel, and other Wi-Fi metrics
 /// </summary>
-public sealed class WifiScanner : IDisposable
+public sealed class WiFiScanner : IDisposable
 {
     private IntPtr _clientHandle = IntPtr.Zero;
     private bool _disposed;
@@ -25,10 +25,10 @@ public sealed class WifiScanner : IDisposable
     }
 
     public DateTime? LastCompletedScan { get; private set; }
-    private List<WifiNetwork> _lastNonEmptyNetworks = new();
+    private List<WiFiNetwork> _lastNonEmptyNetworks = new();
     public bool LastReadUsedOldResults { get; private set; }
 
-    #region Native WiFi API Structures and Constants
+    #region Native Wi-Fi API Structures and Constants
 
     private const int WLAN_MAX_NAME_LENGTH = 256;
     private const int DOT11_SSID_MAX_LENGTH = 32;
@@ -190,7 +190,7 @@ public sealed class WifiScanner : IDisposable
 
     #endregion
 
-    #region Native WiFi API Imports
+    #region Native Wi-Fi API Imports
 
     [DllImport("wlanapi.dll", SetLastError = true)]
     private static extern int WlanOpenHandle(
@@ -262,9 +262,9 @@ public sealed class WifiScanner : IDisposable
     #endregion
 
     /// <summary>
-    /// Initializes the WiFi scanner and opens a handle to the WLAN API
+    /// Initializes the Wi-Fi scanner and opens a handle to the WLAN API
     /// </summary>
-    public WifiScanner()
+    public WiFiScanner()
     {
         uint negotiatedVersion;
         int result = WlanOpenHandle(2, IntPtr.Zero, out negotiatedVersion, out _clientHandle);
@@ -400,12 +400,12 @@ public sealed class WifiScanner : IDisposable
     /// <summary>
     /// Reads Windows' last available BSS list without triggering another scan.
     /// </summary>
-    public List<WifiNetwork> GetAvailableNetworks(bool allowStaleFallback = true)
+    public List<WiFiNetwork> GetAvailableNetworks(bool allowStaleFallback = true)
     {
-        var networks = new List<WifiNetwork>();
+        var networks = new List<WiFiNetwork>();
 
         if (_clientHandle == IntPtr.Zero || _disposed)
-            throw new ObjectDisposedException(nameof(WifiScanner));
+            throw new ObjectDisposedException(nameof(WiFiScanner));
 
         int result = WlanEnumInterfaces(_clientHandle, IntPtr.Zero, out IntPtr interfaceListPtr);
         if (result != 0 || interfaceListPtr == IntPtr.Zero)
@@ -469,7 +469,7 @@ public sealed class WifiScanner : IDisposable
                                 }
                             }
 
-                            networks.Add(new WifiNetwork
+                            networks.Add(new WiFiNetwork
                             {
                                 SSID = ssid,
                                 BSSID = bssid,
@@ -501,11 +501,11 @@ public sealed class WifiScanner : IDisposable
         if (networks.Count == 0 && allowStaleFallback && _lastNonEmptyNetworks.Count > 0)
         {
             LastReadUsedOldResults = true;
-            return new List<WifiNetwork>(_lastNonEmptyNetworks);
+            return new List<WiFiNetwork>(_lastNonEmptyNetworks);
         }
         LastReadUsedOldResults = false;
         if (networks.Count > 0)
-            _lastNonEmptyNetworks = new List<WifiNetwork>(networks);
+            _lastNonEmptyNetworks = new List<WiFiNetwork>(networks);
         return networks;
     }
 
@@ -727,7 +727,7 @@ public sealed class WifiScanner : IDisposable
     /// <summary>
     /// Resolves the connected AP from the scan results by its real BSSID.
     /// </summary>
-    public WifiNetwork? GetConnectedNetwork()
+    public WiFiNetwork? GetConnectedNetwork()
     {
         string? connectedBssid = GetConnectedBssid();
         if (string.IsNullOrEmpty(connectedBssid))
@@ -740,7 +740,7 @@ public sealed class WifiScanner : IDisposable
     /// <summary>
     /// Performs a measurement at the current location
     /// </summary>
-    public WifiMeasurement TakeMeasurement()
+    public WiFiMeasurement TakeMeasurement()
     {
         var networks = GetAvailableNetworks(allowStaleFallback: false);
         string? connectedBssid = GetConnectedBssid();
@@ -754,7 +754,7 @@ public sealed class WifiScanner : IDisposable
             throw new InvalidOperationException(
                 $"Connected AP {connectedBssid} not present in scan. No measurement was saved. Retry scan.");
 
-        return new WifiMeasurement
+        return new WiFiMeasurement
         {
             Timestamp = DateTime.Now,
             ConnectedNetwork = connected,
@@ -822,9 +822,9 @@ public sealed class WifiScanner : IDisposable
 }
 
 /// <summary>
-/// Represents a WiFi network with its properties
+/// Represents a Wi-Fi network with its properties
 /// </summary>
-public class WifiNetwork
+public class WiFiNetwork
 {
     public string SSID { get; set; } = string.Empty;
     public string BSSID { get; set; } = string.Empty;
@@ -851,7 +851,7 @@ public class WifiNetwork
     };
 
     /// <summary>
-    /// Gets the WiFi band (2.4GHz, 5GHz, or 6GHz)
+    /// Gets the Wi-Fi band (2.4GHz, 5GHz, or 6GHz)
     /// </summary>
     public string Band => Frequency switch
     {
@@ -863,13 +863,13 @@ public class WifiNetwork
 }
 
 /// <summary>
-/// Represents a WiFi measurement at a specific point in time
+/// Represents a Wi-Fi measurement at a specific point in time
 /// </summary>
-public class WifiMeasurement
+public class WiFiMeasurement
 {
     public DateTime Timestamp { get; set; }
-    public WifiNetwork? ConnectedNetwork { get; set; }
-    public List<WifiNetwork> VisibleNetworks { get; set; } = new();
+    public WiFiNetwork? ConnectedNetwork { get; set; }
+    public List<WiFiNetwork> VisibleNetworks { get; set; } = new();
     public int SignalStrength { get; set; }
     public int LinkQuality { get; set; }
     public int Channel { get; set; }
