@@ -419,10 +419,11 @@ public partial class MainForm : Form
         try
         {
             var networks = _wifiScanner.GetAvailableNetworks();
-            var connected = networks
-                .Where(n => !string.IsNullOrEmpty(n.SSID))
-                .OrderByDescending(n => n.LinkQuality)
-                .FirstOrDefault();
+            // Resolve the actual Windows connection by BSSID instead of
+            // assuming that the strongest detected AP is the connected one.
+            var connectedBssid = _wifiScanner.GetConnectedBssid();
+            var connected = networks.FirstOrDefault(n =>
+                string.Equals(n.BSSID, connectedBssid, StringComparison.OrdinalIgnoreCase));
 
             // Update connection details
             if (connected != null)
@@ -446,12 +447,15 @@ public partial class MainForm : Form
             {
                 _signalValueLabel.Text = "-- dBm";
                 _signalValueLabel.ForeColor = Color.Gray;
-                _signalQualityLabel.Text = "No Connection";
+                // A connected BSSID may be absent from an incomplete scan.
+                // In that case, do not report a different AP or invent RSSI.
+                _signalQualityLabel.Text = !string.IsNullOrEmpty(connectedBssid)
+                    ? "Connected AP not in scan" : "No Connection";
                 _signalQualityLabel.ForeColor = Color.Gray;
                 _connectedSsidLabel.Text = "--";
                 _channelLabel.Text = "--";
                 _bandLabel.Text = "--";
-                _bssidLabel.Text = "--";
+                _bssidLabel.Text = connectedBssid ?? "--";
                 _speedLabel.Text = "--";
             }
 
@@ -469,7 +473,8 @@ public partial class MainForm : Form
                 item.Tag = network.BSSID;
 
                 // Highlight connected network
-                if (connected != null && network.BSSID == connected.BSSID)
+                if (connected != null &&
+                    string.Equals(network.BSSID, connected.BSSID, StringComparison.OrdinalIgnoreCase))
                 {
                     item.Font = new Font(_networkListView.Font, FontStyle.Bold);
                     item.BackColor = Color.FromArgb(230, 255, 230);
@@ -487,7 +492,9 @@ public partial class MainForm : Form
             // Refresh graph
             _signalGraphPanel.Invalidate();
 
-            _statusLabel.Text = $"Live Monitor: {networks.Count} networks detected";
+            _statusLabel.Text = connected == null && !string.IsNullOrEmpty(connectedBssid)
+                ? $"Live Monitor: {networks.Count} APs; connected AP not in scan"
+                : $"Live Monitor: {networks.Count} APs detected";
         }
         catch (Exception ex)
         {

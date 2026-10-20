@@ -16,6 +16,7 @@ public sealed class WifiScanner : IDisposable
 
     private const int WLAN_MAX_NAME_LENGTH = 256;
     private const int DOT11_SSID_MAX_LENGTH = 32;
+    private const int WLAN_INTF_OPCODE_CURRENT_CONNECTION = 7;
     private const int WLAN_AVAILABLE_NETWORK_INCLUDE_ALL_ADHOC_PROFILES = 0x00000001;
     private const int WLAN_AVAILABLE_NETWORK_INCLUDE_ALL_MANUAL_HIDDEN_PROFILES = 0x00000002;
 
@@ -55,6 +56,24 @@ public sealed class WifiScanner : IDisposable
         public int uSSIDLength;
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = DOT11_SSID_MAX_LENGTH)]
         public byte[] ucSSID;
+    }
+
+    // This matches the prefix of native WLAN_CONNECTION_ATTRIBUTES
+    // through wlanAssociationAttributes.dot11Bssid.
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct WLAN_CONNECTION_PREFIX
+    {
+        public int InterfaceState;
+        public int ConnectionMode;
+
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = WLAN_MAX_NAME_LENGTH)]
+        public string ProfileName;
+
+        public DOT11_SSID Ssid;
+        public int BssType;
+
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 6)]
+        public byte[] Bssid;
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
@@ -156,6 +175,16 @@ public sealed class WifiScanner : IDisposable
         IntPtr pDot11Ssid,
         IntPtr pIeData,
         IntPtr pReserved);
+
+    [DllImport("wlanapi.dll", SetLastError = true)]
+    private static extern int WlanQueryInterface(
+        IntPtr hClientHandle,
+        ref Guid pInterfaceGuid,
+        int opCode,
+        IntPtr pReserved,
+        out uint pdwDataSize,
+        out IntPtr ppData,
+        IntPtr pWlanOpcodeValueType);
 
     [DllImport("wlanapi.dll", SetLastError = true)]
     private static extern void WlanFreeMemory(IntPtr pMemory);
@@ -274,16 +303,74 @@ public sealed class WifiScanner : IDisposable
     }
 
     /// <summary>
-    /// Gets the currently connected network information
+    /// Gets the actual connected AP BSSID from the Windows Native Wi-Fi API.
+    /// Returns null if no interface is connected or the query is unavailable.
+    /// Never guesses by strongest signal.
+    /// </summary>
+    public string? GetConnectedBssid()
+    {
+        if (_clientHandle == IntPtr.Zero || _disposed)
+            return null;
+
+        int result = WlanEnumInterfaces(_clientHandle, IntPtr.Zero, out IntPtr interfaceListPtr);
+        if (result != 0 || interfaceListPtr == IntPtr.Zero)
+            return null;
+
+        try
+        {
+            var interfaces = new WLAN_INTERFACE_INFO_LIST(interfaceListPtr);
+
+            foreach (var iface in interfaces.InterfaceInfo)
+            {
+                // wlan_interface_state_connected == 1
+                if (iface.isState != 1)
+                    continue;
+
+                Guid interfaceGuid = iface.InterfaceGuid;
+                result = WlanQueryInterface(
+                    _clientHandle,
+                    ref interfaceGuid,
+                    WLAN_INTF_OPCODE_CURRENT_CONNECTION,
+                    IntPtr.Zero,
+                    out uint dataSize,
+                    out IntPtr dataPtr,
+                    IntPtr.Zero);
+
+                try
+                {
+                    if (result != 0 || dataPtr == IntPtr.Zero ||
+                        dataSize < (uint)Marshal.SizeOf<WLAN_CONNECTION_PREFIX>())
+                        continue;
+
+                    var connection = Marshal.PtrToStructure<WLAN_CONNECTION_PREFIX>(dataPtr);
+                    return FormatBssid(connection.Bssid);
+                }
+                finally
+                {
+                    if (dataPtr != IntPtr.Zero)
+                        WlanFreeMemory(dataPtr);
+                }
+            }
+
+            return null;
+        }
+        finally
+        {
+            WlanFreeMemory(interfaceListPtr);
+        }
+    }
+
+    /// <summary>
+    /// Resolves the connected AP from the scan results by its real BSSID.
     /// </summary>
     public WifiNetwork? GetConnectedNetwork()
     {
-        var networks = GetAvailableNetworks();
-        // The connected network typically has the highest link quality on the same SSID
-        return networks
-            .Where(n => !string.IsNullOrEmpty(n.SSID))
-            .OrderByDescending(n => n.LinkQuality)
-            .FirstOrDefault();
+        string? connectedBssid = GetConnectedBssid();
+        if (string.IsNullOrEmpty(connectedBssid))
+            return null;
+
+        return GetAvailableNetworks().FirstOrDefault(n =>
+            string.Equals(n.BSSID, connectedBssid, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
@@ -292,7 +379,16 @@ public sealed class WifiScanner : IDisposable
     public WifiMeasurement TakeMeasurement()
     {
         var networks = GetAvailableNetworks();
-        var connected = GetConnectedNetwork();
+        string? connectedBssid = GetConnectedBssid();
+        if (string.IsNullOrEmpty(connectedBssid))
+            throw new InvalidOperationException(
+                "Cannot determine the currently connected Wi-Fi BSSID. No measurement was saved.");
+
+        var connected = networks.FirstOrDefault(n =>
+            string.Equals(n.BSSID, connectedBssid, StringComparison.OrdinalIgnoreCase));
+        if (connected is null)
+            throw new InvalidOperationException(
+                $"Connected AP {connectedBssid} not present in scan. No measurement was saved. Retry scan.");
 
         return new WifiMeasurement
         {
