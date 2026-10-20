@@ -58,6 +58,17 @@ public partial class MainForm : Form
     {
         InitializeComponent();
         InitializeWifiScanner();
+        Shown += OnMainFormShown;
+    }
+
+    private void OnMainFormShown(object? sender, EventArgs e)
+    {
+        if (_mainTabControl.SelectedTab != _liveMonitorTab || _wifiScanner == null)
+            return;
+
+        RefreshLiveMonitor();
+        if (_autoRefreshCheckbox.Checked)
+            _monitorTimer.Start();
     }
 
     private void InitializeComponent()
