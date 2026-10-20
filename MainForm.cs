@@ -87,7 +87,7 @@ public partial class MainForm : Form
 
     private void InitializeComponent()
     {
-        Text = "WiFi Survey Tool - CosmicBytez";
+        Text = "Wi-Fi Survey Tool";
         Size = new Size(1400, 900);
         MinimumSize = new Size(1000, 700);
         StartPosition = FormStartPosition.CenterScreen;
