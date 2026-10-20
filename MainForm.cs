@@ -200,6 +200,7 @@ public partial class MainForm : Form
             Font = new Font("Segoe UI", 9)
         };
         _networkListView.Columns.Add("SSID", 150);
+        _networkListView.Columns.Add("BSSID", 155);
         _networkListView.Columns.Add("Signal", 70);
         _networkListView.Columns.Add("Quality", 60);
         _networkListView.Columns.Add("Channel", 60);
@@ -534,6 +535,7 @@ public partial class MainForm : Form
             {
                 var ssid = string.IsNullOrEmpty(network.SSID) ? "(Hidden)" : network.SSID;
                 var item = new ListViewItem(ssid);
+                item.SubItems.Add(network.BSSID);
                 item.SubItems.Add($"{network.SignalStrength} dBm");
                 item.SubItems.Add($"{network.LinkQuality}%");
                 item.SubItems.Add(network.Channel.ToString());
@@ -560,9 +562,16 @@ public partial class MainForm : Form
             // Refresh graph
             _signalGraphPanel.Invalidate();
 
+            // A BSS entry represents a radio-network instance, not necessarily
+            // a separate physical access point or a distinct SSID.
+            int bssidCount = networks
+                .Where(n => !string.IsNullOrWhiteSpace(n.BSSID))
+                .Select(n => n.BSSID)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count();
             string apStatus = connected == null && !string.IsNullOrEmpty(connectedBssid)
-                ? $"{networks.Count} APs; connected AP not in scan"
-                : $"{networks.Count} APs detected";
+                ? $"{bssidCount} BSSIDs; connected BSSID not in scan"
+                : $"{bssidCount} BSSIDs detected";
             _statusLabel.Text = $"Live Monitor: {apStatus}{(showingOldResults ? " (STALE LIST)" : "")} | {_scanStatusText}";
         }
         catch (Exception ex)
@@ -1388,25 +1397,25 @@ internal class ListViewItemComparer : System.Collections.IComparer
         // Column-specific parsing
         switch (_column)
         {
-            case 1: // Signal (e.g., "-45 dBm")
+            case 2: // Signal (e.g., "-45 dBm")
                 var signalX = int.TryParse(textX.Replace(" dBm", ""), out var sX) ? sX : -100;
                 var signalY = int.TryParse(textY.Replace(" dBm", ""), out var sY) ? sY : -100;
                 result = signalX.CompareTo(signalY);
                 break;
 
-            case 2: // Quality (e.g., "85%")
+            case 3: // Quality (e.g., "85%")
                 var qualX = int.TryParse(textX.Replace("%", ""), out var qX) ? qX : 0;
                 var qualY = int.TryParse(textY.Replace("%", ""), out var qY) ? qY : 0;
                 result = qualX.CompareTo(qualY);
                 break;
 
-            case 3: // Channel (numeric)
+            case 4: // Channel (numeric)
                 var chanX = int.TryParse(textX, out var cX) ? cX : 0;
                 var chanY = int.TryParse(textY, out var cY) ? cY : 0;
                 result = chanX.CompareTo(chanY);
                 break;
 
-            default: // SSID and Band - string comparison
+            default: // SSID, BSSID and Band - string comparison
                 result = string.Compare(textX, textY, StringComparison.OrdinalIgnoreCase);
                 break;
         }
