@@ -21,7 +21,7 @@ A professional Wi-Fi site survey and heatmap generation tool for IT professional
 
 ```bash
 # Navigate to WiFiSurvey directory
-cd tools/WiFiSurvey
+cd WiFiSurvey
 
 # Restore packages
 dotnet restore
@@ -156,18 +156,15 @@ Includes all measurement data with columns:
 
 ## Project Origin and Attribution
 
-This repository is an independently maintained fork of [WifiSurvey](https://github.com/CosmicBytez/WifiSurvey), originally developed by CosmicBytez.
+Wi-Fi Survey is derived from [WifiSurvey by CosmicBytez](https://github.com/CosmicBytez/WifiSurvey). The code was initially developed in a fork of that repository. This independently published repository retains the original project's Git ancestry and the early development included through the merge of PR #2 on October 20, 2026.
 
-- **Original project:** [CosmicBytez/WifiSurvey](https://github.com/CosmicBytez/WifiSurvey)
-- **Original copyright:** Copyright (c) 2025 CosmicBytez
-- **Independent development and modifications:** R083rt0kun, 2026–present
+- **Original project and author:** [CosmicBytez/WifiSurvey](https://github.com/CosmicBytez/WifiSurvey), CosmicBytez.
+- **Original MIT notice:** `Copyright (c) 2025 CosmicBytez` (preserved in the unmodified [LICENSE](LICENSE)).
+- **Independent 2026 modifications:** R083rt0kun, identified in the retained Git history and project metadata.
+- **Public functional baseline:** PR #2 merge commit [`94a408119a9dbddb2b24008eebe0a816dceb5126`](https://github.com/R083rt0kun/WiFiSurvey/commit/94a408119a9dbddb2b24008eebe0a816dceb5126).
+- **Chronological record:** [Public Development History](docs/PROJECT_HISTORY.md), ending at PR #2.
 
-This fork preserves the original Git commit history, copyright notices, and MIT License.
-
-Subsequent modifications and improvements are independently maintained by R083rt0kun. The repository's commit history provides a record of contributions and changes made to the project.
-
-This fork is independently maintained and is not affiliated with or endorsed by the original developer.
-
+This is an independently published derivative, not an official release by or endorsement from the original author. Historical PR numbers identify development milestones; original PR discussion pages are not presumed to survive repository replacement.
 ## License
 
 This project is based on software originally published by CosmicBytez under the MIT License.
@@ -175,7 +172,3 @@ This project is based on software originally published by CosmicBytez under the 
 The original copyright and license notices are preserved in the [LICENSE](LICENSE) file.
 
 The original author's rights are retained. Independently authored modifications may have their own copyright protection, subject to applicable law and the terms of the original license.
-## See Also
-
-- [WinPing](../WinPing/) - Network ping utility
-- [Tools Library README](../README.md) - Overview of all IT tools
